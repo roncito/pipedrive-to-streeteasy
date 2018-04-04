@@ -11,7 +11,7 @@ var xmlObj = { streeteasy: [
 ]};
 
 var emptyPropertyTmpl = { property: [ 
-  { _attr: { type: "rental", status: "active" } },            
+  { _attr: { type: "rental", status: "active", url: "http://www.grandand.co/" } },            
   { location: [ 
     { address: '' },
     // TODO { apartment: '4H' }
@@ -69,7 +69,7 @@ function validateProperty(deal){
     errors.push("address");
   }
   if (!deal['1e9ee8939fba1c89c1db9348e23023d30866b488']) {
-    // errors.push("apartment #");
+    errors.push("apartment #");
   }
   if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_sublocality']) {
     errors.push("city");
@@ -172,7 +172,7 @@ function buildProperty(deal,fxn) {
 }
 
 function addDealLink(item) {
-  var dealLink = "https://confused-velvet.glitch.me/deals/"+item.id;
+  var dealLink = "https://grandco.glitch.me/deals/"+item.id;
   if (item['3d1491ff621c8ce3e482fd9362caf532b1f0d904']!=dealLink) {
     // write dealLink to Pipedrive
     request({ json: {"3d1491ff621c8ce3e482fd9362caf532b1f0d904": dealLink}, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + item.id + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
