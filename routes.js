@@ -26,7 +26,7 @@ var emptyPropertyTmpl = { property: [
   ]}
 ]};
 
-var propertyTypes = {'116':'rental','117':'condo','118':'coop','119':'townhouse','120':'condop','121':'house','122':'other'};
+var propertyTypes = {'116':'rental','117':'condo','118':'coop','119':'townhouse','120':'condop','121':'house','122':'other','173':'multifamily'};
 
 var albumBucketName = process.env.BUCKET_NAME;
 var bucketRegion = process.env.REGION;
