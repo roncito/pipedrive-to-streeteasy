@@ -11,7 +11,7 @@ var xmlObj = { streeteasy: [
 ]};
 
 var emptyPropertyTmpl = { property: [ 
-  { _attr: { type: "rental", status: "active", url: "http://www.grandand.co/" } },            
+  { _attr: { url: "http://www.grandand.co/" } },            
   { location: [ 
     { address: '' },
     // TODO { apartment: '4H' }
@@ -97,7 +97,11 @@ function validateProperty(deal){
   } 
   if (!deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']) {
     errors.push("propertyType");
-  } 
+  }
+  if (!deal['db856b47ec6d743bd178f979ca762b560ae77fe5']) {
+    errors.push("propertyStatus");
+  }
+  
   return errors;
 }
 
@@ -108,10 +112,20 @@ function buildProperty(deal,fxn) {
     fxn(null);
     return;
   }
-  
   var newProperty = JSON.parse(JSON.stringify(emptyPropertyTmpl)); // clone object
   var _attr = getProp(newProperty.property, '_attr');
   _attr.id = deal.id;
+  
+  _attr.type = propertyTypeById(deal['db856b47ec6d743bd178f979ca762b560ae77fe5']);
+  _attr.status = statusById(deal['1ebd49852bc24dadf2ac29b68f0afa251dc8667a']);
+
+  /*
+  if (deal.id!=628) {
+    fxn(null);
+    return;
+  }
+  */
+  //console.log(deal);
   
   var location = getProp(newProperty.property, 'location');
   setProp(location, 'address', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_street_number'] + ' ' + deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_route']);
@@ -122,33 +136,86 @@ function buildProperty(deal,fxn) {
 
   var details = getProp(newProperty.property, 'details');
   setProp(details, 'price', deal['460a26a639ef3b52b94fafbea36692cbf4a19f9c']);
+  if (!!deal['4f410cb04877fd90cf679cff33d05a5b54355a3b'])
+    setProp(details, 'noFee', null);
+  
+  if (!!deal['b37fd09fade78bfc53efa0571d067b462a2dc523'])
+    setProp(details, 'exclusive', null);
+
   setProp(details, 'bedrooms', deal['cbd454e4c7ae8d76298bee7c4a567fa144b22545']);
   setProp(details, 'bathrooms', deal['e305c643ef826967949493737e9c26eb7ea72be7']);
   setProp(details, 'availableOn', deal['4fe667043c8b8af2f71803c0a4d211389b23c2c0']);
   // TODO  totalRooms
   var desc = getProp(details,'description');
   if (!!deal['322f68d44c329c5a28c258cba99bfde3b9fb0179'])
-    desc['_cdata'] = deal['322f68d44c329c5a28c258cba99bfde3b9fb0179'].replace("\n", "<br />");
+    desc['_cdata'] = deal['322f68d44c329c5a28c258cba99bfde3b9fb0179'].replace(/\n/g, "<br />");
   
-  setProp(details, 'propertyType', propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]);
+  console.log(propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]);
+  
+  if (propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]) {
+    setProp(details, 'propertyType', propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]);
+  } else {
+    setProp(details, 'propertyType', 'other');
+  }
   
   // amenities
-  
   var amenities = { amenities: []};
   if (!!deal['870b5f5f53a7ca8189aa7a317c886d7874839c09'])
     amenities.amenities.push({pets: null})
 
   if (amenities.amenities.length > 0)
     newProperty.property.push(amenities);
-
-  var agents = { agents: []};
-  var newAgent = { agent: []};
-  newAgent.agent.push({name: deal['user_id']['name']}, {email: deal['user_id']['email']});
-  agents.agents.push(newAgent);
-  newProperty.property.push(agents);
   
-  // open houses ... TODO
-  // var open_houses = { openHouses: []};
+  // Open houses
+  if (deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210']) {
+    var open_houses = { openHouses: []}, itemArry, startTime, endTime, newOpenHouse;
+    deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210'].split(",").map(function(item) {
+      newOpenHouse = { openHouse: []};
+	    item = item.trim();
+      if (/\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}\w{2} to \d{1,2}:\d{2}\w{2}( APPT-ONLY)?/.test(item)) {
+      	itemArry = item.split(' ');
+      	startTime = itemArry[0] + ' ' + itemArry[1];
+      	endTime = itemArry[0] + ' ' + itemArry[3];
+        newOpenHouse.openHouse.push({startsAt: startTime}, {endsAt: endTime});
+        if (itemArry[4]=='APPT-ONLY') {
+          newOpenHouse.openHouse.push({apptOnly: null});
+        }
+        open_houses.openHouses.push(newOpenHouse);
+      }
+    });
+    newProperty.property.push(open_houses);
+  }
+ 
+  // agents
+  var agents = { agents: []}, newAgent = { agent: []}, myAgent;  
+  /*
+  if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']) {
+    // billing
+    newAgent = { agent: []};
+    myAgent = billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']);
+    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+    agents.agents.push(newAgent);
+  }
+  */
+  if (deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']) {
+    // primary
+    newAgent = { agent: []};
+    myAgent = primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']);
+    console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
+    console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
+    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+    agents.agents.push(newAgent);
+  }
+  if (deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
+    // secondary
+    newAgent = { agent: []};
+    myAgent = secondaryAgentById(deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']);
+    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+    agents.agents.push(newAgent);
+  }
+  if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca'] || deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a'] || deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
+    newProperty.property.push(agents);
+  }
 
   // media
   var media = { media: []};
@@ -185,8 +252,88 @@ function addDealLink(item) {
   }
 }
 
-// Define the routes that our API is going to use.
+function billingAgentById(id) {
+  if (id == '144') {
+    return ['David Shapiro','david@grandand.co'];
+  } else if (id == '145') {
+    return ['Ryan Hanover','rhanover@grandand.co'];
+  } else if (id == '146') {
+    return ['Kelly Moffet', 'kmoffett@grandand.co'];
+  } else if (id == '147') {
+    return ['Jen Taher','jtaher@grandand.co'];
+  } else if (id == '148') {
+    return ['Grand and Co.','hello@grandand.co'];
+  } else {
+    return ''
+  }
+}
 
+function primaryAgentById(id) {
+  if (id == '132') {
+    return ['David Shapiro','david@grandand.co'];
+  } else if (id == '133') {
+    return ['Ryan Hanover','rhanover@grandand.co'];
+  } else if (id == '134') {
+    return ['Kelly Moffet', 'kmoffett@grandand.co'];
+  } else if (id == '164') {
+    return ['Jen Taher','jtaher@grandand.co'];
+  } else if (id == '135') {
+    return ['Grand and Co.','hello@grandand.co'];
+  } else {
+    return ['Grand and Co.','hello@grandand.co'];
+  }
+}
+          
+function secondaryAgentById(id) {
+  if (id == '129') {
+    return ['Ryan Hanover','rhanover@grandand.co'];
+  } else if (id == '130') {
+    return ['Kelly Moffet', 'kmoffett@grandand.co'];
+  } else if (id == '128') {
+    return ['Jen Taher','jtaher@grandand.co'];
+  } else if (id == '131') {
+    return ['Grand and Co.','hello@grandand.co'];
+  } else {
+    return ['Grand and Co.','hello@grandand.co'];
+  }
+}
+
+function propertyTypeById(id) {
+  if (id == '149') {
+    return 'rental';
+  } else if (id == '150') {
+    return 'sale';
+  } else {
+    return '';
+  }
+}
+
+// active|off-market|temp-off-market|in-contract|contract-out|contract-signed|unavailable|sold|rented
+function statusById(id) {
+  if (id == '151') {
+    return 'active';
+  } else if (id == '152') {
+    return 'off-market';
+  } else if (id == '153') {
+    return 'temp-off-market';
+  } else if (id == '154') {
+    return 'in-contract';
+  } else if (id == '155') {
+    return 'contract-out';
+  } else if (id == '165') {
+    return 'contract-signed';
+  } else if (id == '166') {
+    return 'unavailable';
+  } else if (id == '167') {
+    return 'sold';
+  } else if (id == '168') {
+    return 'rented';
+  } else {
+    return '';
+  }
+}
+
+// Define the routes that our API is going to use.
 var routes = function(app) {
 
   app.get("/", function(req, res) {
