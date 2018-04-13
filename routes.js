@@ -2,6 +2,18 @@ var request = require('request');
 var async = require('async');
 var xml = require('xml');
 var AWS = require('aws-sdk');
+var Crypto = require("crypto");
+// setup a new database
+// persisted using async file storage
+// Security note: the database is saved to the file `db.json` on the local filesystem.
+// It's deliberately placed in the `.data` directory which doesn't get copied if someone remixes the project.
+var low = require('lowdb')
+var FileSync = require('lowdb/adapters/FileSync')
+var adapter = new FileSync('.data/db.json')
+var db = low(adapter)
+
+// default post list
+db.defaults({ posts: []}).write();
 
 // object templates
 
@@ -11,7 +23,7 @@ var xmlObj = { streeteasy: [
 ]};
 
 var emptyPropertyTmpl = { property: [ 
-  { _attr: { url: "http://www.grandand.co/" } },            
+  { _attr: { url: 'http://www.grandand.co/' } },            
   { location: [ 
     { address: '' },
     // TODO { apartment: '4H' }
@@ -21,7 +33,7 @@ var emptyPropertyTmpl = { property: [
     { bedrooms: '' },
     { bathrooms: '' },
     { totalrooms: '' },
-    { description: { _cdata: ""} },
+    { description: { _cdata: ''} },
     { propertyType: '' }
   ]}
 ]};
@@ -101,7 +113,6 @@ function validateProperty(deal){
   if (!deal['db856b47ec6d743bd178f979ca762b560ae77fe5']) {
     errors.push("propertyStatus");
   }
-  
   return errors;
 }
 
@@ -119,13 +130,6 @@ function buildProperty(deal,fxn) {
   _attr.type = propertyTypeById(deal['db856b47ec6d743bd178f979ca762b560ae77fe5']);
   _attr.status = statusById(deal['1ebd49852bc24dadf2ac29b68f0afa251dc8667a']);
 
-  /*
-  if (deal.id!=628) {
-    fxn(null);
-    return;
-  }
-  */
-  //console.log(deal);
   
   var location = getProp(newProperty.property, 'location');
   setProp(location, 'address', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_street_number'] + ' ' + deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_route']);
@@ -149,9 +153,7 @@ function buildProperty(deal,fxn) {
   var desc = getProp(details,'description');
   if (!!deal['322f68d44c329c5a28c258cba99bfde3b9fb0179'])
     desc['_cdata'] = deal['322f68d44c329c5a28c258cba99bfde3b9fb0179'].replace(/\n/g, "<br />");
-  
-  console.log(propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]);
-  
+
   if (propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]) {
     setProp(details, 'propertyType', propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]);
   } else {
@@ -169,40 +171,31 @@ function buildProperty(deal,fxn) {
   // Open houses
   if (deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210']) {
     var open_houses = { openHouses: []}, itemArry, startTime, endTime, newOpenHouse;
-    deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210'].split(",").map(function(item) {
+    deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210'].split(",")
+      .filter(function (thing) { return thing.trim();})      
+      .map(function(item) {
       newOpenHouse = { openHouse: []};
 	    item = item.trim();
-      if (/\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}\w{2} to \d{1,2}:\d{2}\w{2}( APPT-ONLY)?/.test(item)) {
-      	itemArry = item.split(' ');
-      	startTime = itemArry[0] + ' ' + itemArry[1];
-      	endTime = itemArry[0] + ' ' + itemArry[3];
-        newOpenHouse.openHouse.push({startsAt: startTime}, {endsAt: endTime});
-        if (itemArry[4]=='APPT-ONLY') {
-          newOpenHouse.openHouse.push({apptOnly: null});
-        }
-        open_houses.openHouses.push(newOpenHouse);
+      itemArry = item.split(/\s/);
+      startTime = itemArry[0] + ' ' + itemArry[1];
+    	endTime = itemArry[0] + ' ' + itemArry[3];
+      newOpenHouse.openHouse.push({startsAt: startTime}, {endsAt: endTime});
+      if (itemArry[4]=='APPT-ONLY') {
+        newOpenHouse.openHouse.push({apptOnly: null});
       }
+      open_houses.openHouses.push(newOpenHouse);      
     });
     newProperty.property.push(open_houses);
   }
  
   // agents
   var agents = { agents: []}, newAgent = { agent: []}, myAgent;  
-  /*
-  if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']) {
-    // billing
-    newAgent = { agent: []};
-    myAgent = billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']);
-    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
-    agents.agents.push(newAgent);
-  }
-  */
   if (deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']) {
     // primary
     newAgent = { agent: []};
     myAgent = primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']);
-    console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
-    console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
+    //console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
+    //console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
     newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
     agents.agents.push(newAgent);
   }
@@ -220,22 +213,32 @@ function buildProperty(deal,fxn) {
   // media
   var media = { media: []};
   var albumPhotosKey = encodeURIComponent(deal.id);
-  s3.listObjects({Prefix: albumPhotosKey}, function(err, data) {
-    if (err) {
-      console.log(err);
-    }
-    // `this` references the AWS.Response instance that represents the response
-    var href = this.request.httpRequest.endpoint.href;
-    var bucketUrl = href + albumBucketName + '/';
-    var photos = data.Contents.map(function(photo) {
-      var photoKey = photo.Key;
-      var photoUrl = bucketUrl + photoKey;
+  var imgPaths = getOrCreateImagePaths(deal.id + ''); // convert to string before querying lowdb
+  if (imgPaths.length > 0) {
+    // write images in order
+    imgPaths.map(function(path) {
+      var photoUrl = 'https://s3.amazonaws.com/grandandco/' + path;
       media.media.push({photo: { _attr: { url: photoUrl} }});
     });
     newProperty.property.push(media);
-    // TODO: add some error checking here so we know XML contains all required fields 
     fxn(newProperty);
-  })
+  } else {
+    s3.listObjects({Prefix: albumPhotosKey}, function(err, data) {
+      if (err) {
+        console.log(err);
+      }
+      // `this` references the AWS.Response instance that represents the response
+      var href = this.request.httpRequest.endpoint.href;
+      var bucketUrl = href + albumBucketName + '/';
+      var photos = data.Contents.map(function(photo) {
+        var photoKey = photo.Key;
+        var photoUrl = bucketUrl + photoKey;
+        media.media.push({photo: { _attr: { url: photoUrl} }});
+      });
+      newProperty.property.push(media);
+      fxn(newProperty);
+    })
+  }
 }
 
 function addDealLink(item) {
@@ -333,6 +336,20 @@ function statusById(id) {
   }
 }
 
+function getOrCreateImagePaths(dealId) {
+  var post = db.get('posts')
+    .find({ id: dealId })
+    .value();
+  if (post==null) {
+    post = db.get('posts')
+      .push({ id: dealId, images: []})
+      .write();
+    return [];
+  } else {
+    return post.images;
+  }
+}
+
 // Define the routes that our API is going to use.
 var routes = function(app) {
 
@@ -390,7 +407,7 @@ var routes = function(app) {
     );
   }); 
   
-  app.get("/deals/:pid", function(req, res) {
+  app.get("/dealx/:pid", function(req, res) {
     request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
       if (!error && response.statusCode == 200) {
         var response_obj = JSON.parse(body)
@@ -407,7 +424,52 @@ var routes = function(app) {
         res.send('Whoops, something went wrong. Try refreshing the page.');
       }
     });
+  });
+  
+  app.get("/deals/:pid", function(req, res) {
+    request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+      if (!error && response.statusCode == 200) {
+        var imgPaths = getOrCreateImagePaths(req.params.pid);       
+        var response_obj = JSON.parse(body)
+        var vars = {
+          bucketName: process.env.BUCKET_NAME,
+          region: process.env.REGION,
+          identityPoolId: process.env.IDENTITY_POOL_ID,
+          pid: req.params.pid,
+          title: response_obj['data']['title'],
+          errors: validateProperty(response_obj['data']),
+          imgPaths: imgPaths
+        }
+        res.render('dealx', vars);
+      } else {
+        res.send('Whoops, something went wrong. Try refreshing the page.');
+      }
+    });
+  });
+  
+  app.post("/upload", function(req, res) {
+    // FIXME - this does nothing. make it so it doesn't get called from dropzone
+    res.status(200);
+    res.send('sorted!');
+  });
+  
+  app.post("/sorted", function(req, res) {
+    console.log(req.body);
+    var params = req.body;
+    db.get('posts')
+      .find({ id: params.id })
+      .set( 'images', params.imgPaths)
+      .write();           
+    res.status(200);
+    res.send('sorted!');
+  });
+
+  app.get("/printdb", function(req, res) {
+    res.send(db.get('posts'));
   })
+  
+  
+  
 }
 
 module.exports = routes;
