@@ -77,9 +77,28 @@ function validateProperty(deal){
   var errors = [];
   // required fields
   // address, city, state, zipcode, price, bedrooms, bathrooms, totalrooms, description, propertyType
+
+  if (!deal['25a2c192ca4657769951eec9acf7c5db175735df']) {
+    errors.push("address");
+  }
+  if (!deal['1e9ee8939fba1c89c1db9348e23023d30866b488']) {
+    errors.push("apartment #");
+  }
+  if (!deal['40f5914ee33610ada43ec64a769db7801689ab6b']) {
+    errors.push("city");
+  } 
+  if (!deal['b23c94d573980ff67003139727ea2b7760137200']) {
+    errors.push("state");
+  } 
+  if (!deal['545a650034c5f7023420d7f012b1a2df5024a6a1']) {
+    errors.push("zipcode");
+  }
+
+  /*
   if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_street_number'] || !deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_route']) {
     errors.push("address");
   }
+  
   if (!deal['1e9ee8939fba1c89c1db9348e23023d30866b488']) {
     errors.push("apartment #");
   }
@@ -91,7 +110,9 @@ function validateProperty(deal){
   } 
   if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_postal_code']) {
     errors.push("zipcode");
-  } 
+  }
+  */
+  
   if (!deal['460a26a639ef3b52b94fafbea36692cbf4a19f9c']) {
     errors.push("price");
   } 
@@ -132,11 +153,11 @@ function buildProperty(deal,fxn) {
 
   
   var location = getProp(newProperty.property, 'location');
-  setProp(location, 'address', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_street_number'] + ' ' + deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_route']);
+  setProp(location, 'address', deal['25a2c192ca4657769951eec9acf7c5db175735df']);
   setProp(location, 'apartment', deal['1e9ee8939fba1c89c1db9348e23023d30866b488']);
-  setProp(location, 'city', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_sublocality']);
-  setProp(location, 'state', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_admin_area_level_1']);
-  setProp(location, 'zipcode', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_postal_code']);
+  setProp(location, 'city', deal['40f5914ee33610ada43ec64a769db7801689ab6b']);
+  setProp(location, 'state', deal['b23c94d573980ff67003139727ea2b7760137200']);
+  setProp(location, 'zipcode', deal['545a650034c5f7023420d7f012b1a2df5024a6a1']);
 
   var details = getProp(newProperty.property, 'details');
   setProp(details, 'price', deal['460a26a639ef3b52b94fafbea36692cbf4a19f9c']);
@@ -148,6 +169,8 @@ function buildProperty(deal,fxn) {
 
   setProp(details, 'bedrooms', deal['cbd454e4c7ae8d76298bee7c4a567fa144b22545']);
   setProp(details, 'bathrooms', deal['e305c643ef826967949493737e9c26eb7ea72be7']);
+  setProp(details, 'totalrooms', deal['018a380f8ec781628bd4a2b9324f706d82d3bf1d']);
+  
   setProp(details, 'availableOn', deal['4fe667043c8b8af2f71803c0a4d211389b23c2c0']);
   // TODO  totalRooms
   var desc = getProp(details,'description');
@@ -214,7 +237,7 @@ function buildProperty(deal,fxn) {
   var media = { media: []};
   var albumPhotosKey = encodeURIComponent(deal.id);
   var imgPaths = getOrCreateImagePaths(deal.id + ''); // convert to string before querying lowdb
-  if (imgPaths.length > 0) {
+  if (imgPaths && imgPaths.length > 0) {
     // write images in order
     imgPaths.map(function(path) {
       var photoUrl = 'https://s3.amazonaws.com/grandandco/' + path;
@@ -357,7 +380,14 @@ var routes = function(app) {
     res.render('index');
   });
   
+  app.get("/blah", function(req, res) {
+    res.render('index');
+  });
+  
   app.get("/deals", function(req, res) {
+    
+    console.log(req.query.partner=='nakedapartments');
+    
     var goOnThen = true, offset = 0, allListings = [];
     // handle pagination
     async.whilst(
@@ -380,7 +410,13 @@ var routes = function(app) {
         var StreetEasyListings = [];
         var myObj = JSON.parse(JSON.stringify(xmlObj)); // clone object
         allListings.forEach(item => {
-          if (!!item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']) { // streeteasy tag
+          if (item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']==null) {
+            // skip
+          } else if (item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f'].indexOf(',') > -1) {
+            StreetEasyListings.push(item);
+          } else if (req.query.partner=='nakedapartments' && item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']=='174') {
+            StreetEasyListings.push(item);
+          } else if (req.query.partner==null && item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']=='42') {
             StreetEasyListings.push(item);
           }
           // check to see if item has URL, if not add it
