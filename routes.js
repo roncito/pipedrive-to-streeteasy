@@ -137,7 +137,7 @@ function validateProperty(deal){
   return errors;
 }
 
-function buildProperty(deal,fxn) {
+function buildProperty(deal, req, fxn) {
   
   var errors = validateProperty(deal);
   if (errors.length > 0) {
@@ -212,27 +212,34 @@ function buildProperty(deal,fxn) {
   }
  
   // agents
-  var agents = { agents: []}, newAgent = { agent: []}, myAgent;  
-  if (deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']) {
-    // primary
+  var agents = { agents: []}, newAgent = { agent: []}, myAgent;
+  if (req.query.partner=='nakedapartments') {
     newAgent = { agent: []};
-    myAgent = primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']);
-    //console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
-    //console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
-    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+    newAgent.agent.push({name: 'Grand and Co.'}, {email: 'hello@grandand.co'});
     agents.agents.push(newAgent);
-  }
-  if (deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
-    // secondary
-    newAgent = { agent: []};
-    myAgent = secondaryAgentById(deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']);
-    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
-    agents.agents.push(newAgent);
-  }
-  if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca'] || deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a'] || deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
     newProperty.property.push(agents);
+  } else {
+    if (deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']) {
+      // primary
+      newAgent = { agent: []};
+      myAgent = primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']);
+      //console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
+      //console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
+      newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+      agents.agents.push(newAgent);
+    }
+    if (deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
+      // secondary
+      newAgent = { agent: []};
+      myAgent = secondaryAgentById(deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']);
+      newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+      agents.agents.push(newAgent);
+    }
+    if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca'] || deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a'] || deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
+      newProperty.property.push(agents);
+    }
   }
-
+  
   // media
   var media = { media: []};
   var albumPhotosKey = encodeURIComponent(deal.id);
@@ -385,9 +392,6 @@ var routes = function(app) {
   });
   
   app.get("/deals", function(req, res) {
-    
-    console.log(req.query.partner=='nakedapartments');
-    
     var goOnThen = true, offset = 0, allListings = [];
     // handle pagination
     async.whilst(
@@ -424,7 +428,7 @@ var routes = function(app) {
         });
         var idx = 0;
         for (let deal of StreetEasyListings) {
-          buildProperty(deal, function(property) {
+          buildProperty(deal, req, function(property) {
             if (property) {
               myObj['streeteasy'][1]['properties'].push(property);
             }
