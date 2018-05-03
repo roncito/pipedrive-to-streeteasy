@@ -185,8 +185,115 @@ function buildProperty(deal, req, fxn) {
   
   // amenities
   var amenities = { amenities: []};
-  if (!!deal['870b5f5f53a7ca8189aa7a317c886d7874839c09'])
-    amenities.amenities.push({pets: null})
+  var amenityIds = deal['cf97e3c0f0a4989500e96bfdad350f122d170d0b'].split(',');
+  var otherAmenities = [];
+  amenityIds.forEach(item => {
+    otherAmenities = [];
+    if (item=='') {
+      // skip
+    } else if (item=='44') {	
+      amenities.amenities.push({elevator: null});
+    } else if (item=='46') {
+      amenities.amenities.push({doorman: null});
+    } else if (item=='54') {
+      amenities.amenities.push({garage: null});
+    } else if (item=='55') {
+      amenities.amenities.push({parking: null});
+    } else if (item=='57') {
+      amenities.amenities.push({gym: null});
+    } else if (item=='58') {
+      amenities.amenities.push({pool: null});
+    } else if (item=='62') {
+      amenities.amenities.push({pets: null});
+    } else if (item=='63') {
+      amenities.amenities.push({storage: null});
+    } else if (item=='98') {
+      amenities.amenities.push({fireplace: null});
+    } else if (item=='99') {
+      amenities.amenities.push({dishwasher: null});
+    } else if (item=='100') {
+      amenities.amenities.push({furnished: null});
+    } else if (item=='102') {
+      amenities.amenities.push({washerDryer: null});
+    } else if (item=='109') {
+      amenities.amenities.push({balcony: null});
+    } else if (item=='112') {
+      amenities.amenities.push({patio: null});
+    } else if (item=='47') {
+      otherAmenities.push('Part-time Doorman');
+    } else if (item=='48') {
+      otherAmenities.push('Virtual Doorman');
+    } else if (item=='49') {
+      otherAmenities.push('Green Building');
+    } else if (item=='50') {
+      otherAmenities.push('Smoke-free');
+    } else if (item=='51') {
+      otherAmenities.push('Bike Room');
+    } else if (item=='52') {
+      otherAmenities.push('Package Room');
+    } else if (item=='53') {
+      otherAmenities.push('Laundry in Building');
+    } else if (item=='56') {
+      otherAmenities.push('Community Recreation Facilities');
+    } else if (item=='59') {
+      otherAmenities.push('Live-in Super');
+    } else if (item=='60') {
+      otherAmenities.push('Cats and Dogs Allowed');
+    } else if (item=='61') {
+      otherAmenities.push('Cats Only - No Dogs');
+    } else if (item=='64') {
+      otherAmenities.push('Media Room');
+    } else if (item=='65') {
+      otherAmenities.push("Children's Playroom");
+    } else if (item=='66') {
+      otherAmenities.push('Verizon FiOS Enabled');
+    } else if (item=='67') {
+      otherAmenities.push('Concierge');
+    } else if (item=='68') {
+      otherAmenities.push('Sublets Allowed');
+    } else if (item=='70') {
+      otherAmenities.push('Gifts Allowed');
+    } else if (item=='71') {
+      otherAmenities.push('Co-purchase Allowed');
+    } else if (item=='72') {
+      otherAmenities.push('Parents Buying Allowed');
+    } else if (item=='73') {
+      otherAmenities.push('Land Lease');
+    } else if (item=='74') {
+      otherAmenities.push('Cold Storage');
+    } else if (item=='96') {
+      otherAmenities.push('Hot Tub');
+    } else if (item=='97') {
+      otherAmenities.push('Central Air Conditioning');
+    } else if (item=='101') {
+      otherAmenities.push('Loft');
+    } else if (item=='103') {
+      otherAmenities.push('Pied-a-Terre Allowed');
+    } else if (item=='104') {
+      otherAmenities.push('Waterfront');
+    } else if (item=='105') {
+      otherAmenities.push('Waterview');
+    } else if (item=='106') {
+      otherAmenities.push('Guarantors Accepted');
+    } else if (item=='107') {
+      otherAmenities.push('Board Approval Required');
+    } else if (item=='108') {
+      otherAmenities.push('Sublet');
+    } else if (item=='110') {
+      otherAmenities.push('Courtyard');
+    } else if (item=='111') {
+      otherAmenities.push('Deck');
+    } else if (item=='113') {
+      otherAmenities.push('Terrace');
+    } else if (item=='114') {
+      otherAmenities.push('Roof Deck');
+    } else if (item=='115') {
+      otherAmenities.push('Garden');
+    }
+  });
+  
+  if (otherAmenities.length > 0)
+		amenities.amenities.push({other: otherAmenities.join(',')});
 
   if (amenities.amenities.length > 0)
     newProperty.property.push(amenities);
