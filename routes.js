@@ -94,25 +94,6 @@ function validateProperty(deal){
     errors.push("zipcode");
   }
 
-  /*
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_street_number'] || !deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_route']) {
-    errors.push("address");
-  }
-  
-  if (!deal['1e9ee8939fba1c89c1db9348e23023d30866b488']) {
-    errors.push("apartment #");
-  }
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_sublocality']) {
-    errors.push("city");
-  } 
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_admin_area_level_1']) {
-    errors.push("state");
-  } 
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_postal_code']) {
-    errors.push("zipcode");
-  }
-  */
-  
   if (!deal['460a26a639ef3b52b94fafbea36692cbf4a19f9c']) {
     errors.push("price");
   } 
@@ -188,7 +169,6 @@ function buildProperty(deal, req, fxn) {
   var amenityIds = deal['cf97e3c0f0a4989500e96bfdad350f122d170d0b'].split(',');
   var otherAmenities = [];
   amenityIds.forEach(item => {
-    otherAmenities = [];
     if (item=='') {
       // skip
     } else if (item=='44') {	
@@ -293,10 +273,10 @@ function buildProperty(deal, req, fxn) {
   });
   
   if (otherAmenities.length > 0)
-		amenities.amenities.push({other: otherAmenities.join(',')});
+		amenities.amenities.push({other: otherAmenities.join(', ')});
 
   if (amenities.amenities.length > 0)
-    newProperty.property.push(amenities);
+    details.push(amenities);
   
   // Open houses
   if (deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210']) {
