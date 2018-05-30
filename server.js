@@ -8,6 +8,7 @@
 var express = require("express");
 var bodyParser = require("body-parser");
 var path = require("path");
+
 var app = express();
 var hbs = require('express-hbs');
 
@@ -16,6 +17,9 @@ app.use(bodyParser.urlencoded({extended: true}));
 
 // set the view engine
 app.set('view engine', 'hbs');
+
+// http://expressjs.com/en/starter/static-files.html
+app.use(express.static('public'));
 
 // configure the view engine 
 app.engine('hbs', hbs.express4({  

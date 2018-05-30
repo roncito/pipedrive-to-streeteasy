@@ -2,6 +2,18 @@ var request = require('request');
 var async = require('async');
 var xml = require('xml');
 var AWS = require('aws-sdk');
+var Crypto = require("crypto");
+// setup a new database
+// persisted using async file storage
+// Security note: the database is saved to the file `db.json` on the local filesystem.
+// It's deliberately placed in the `.data` directory which doesn't get copied if someone remixes the project.
+var low = require('lowdb')
+var FileSync = require('lowdb/adapters/FileSync')
+var adapter = new FileSync('.data/db.json')
+var db = low(adapter)
+
+// default post list
+db.defaults({ posts: []}).write();
 
 // object templates
 
@@ -11,7 +23,7 @@ var xmlObj = { streeteasy: [
 ]};
 
 var emptyPropertyTmpl = { property: [ 
-  { _attr: { url: "http://www.grandand.co/" } },            
+  { _attr: { url: 'http://www.grandand.co/' } },            
   { location: [ 
     { address: '' },
     // TODO { apartment: '4H' }
@@ -21,7 +33,7 @@ var emptyPropertyTmpl = { property: [
     { bedrooms: '' },
     { bathrooms: '' },
     { totalrooms: '' },
-    { description: { _cdata: ""} },
+    { description: { _cdata: ''} },
     { propertyType: '' }
   ]}
 ]};
@@ -65,21 +77,23 @@ function validateProperty(deal){
   var errors = [];
   // required fields
   // address, city, state, zipcode, price, bedrooms, bathrooms, totalrooms, description, propertyType
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_street_number'] || !deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_route']) {
+
+  if (!deal['25a2c192ca4657769951eec9acf7c5db175735df']) {
     errors.push("address");
   }
   if (!deal['1e9ee8939fba1c89c1db9348e23023d30866b488']) {
     errors.push("apartment #");
   }
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_sublocality']) {
+  if (!deal['40f5914ee33610ada43ec64a769db7801689ab6b']) {
     errors.push("city");
   } 
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_admin_area_level_1']) {
+  if (!deal['b23c94d573980ff67003139727ea2b7760137200']) {
     errors.push("state");
   } 
-  if (!deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_postal_code']) {
+  if (!deal['545a650034c5f7023420d7f012b1a2df5024a6a1']) {
     errors.push("zipcode");
-  } 
+  }
+
   if (!deal['460a26a639ef3b52b94fafbea36692cbf4a19f9c']) {
     errors.push("price");
   } 
@@ -101,11 +115,10 @@ function validateProperty(deal){
   if (!deal['db856b47ec6d743bd178f979ca762b560ae77fe5']) {
     errors.push("propertyStatus");
   }
-  
   return errors;
 }
 
-function buildProperty(deal,fxn) {
+function buildProperty(deal, req, fxn) {
   
   var errors = validateProperty(deal);
   if (errors.length > 0) {
@@ -119,20 +132,13 @@ function buildProperty(deal,fxn) {
   _attr.type = propertyTypeById(deal['db856b47ec6d743bd178f979ca762b560ae77fe5']);
   _attr.status = statusById(deal['1ebd49852bc24dadf2ac29b68f0afa251dc8667a']);
 
-  /*
-  if (deal.id!=628) {
-    fxn(null);
-    return;
-  }
-  */
-  //console.log(deal);
   
   var location = getProp(newProperty.property, 'location');
-  setProp(location, 'address', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_street_number'] + ' ' + deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_route']);
+  setProp(location, 'address', deal['25a2c192ca4657769951eec9acf7c5db175735df']);
   setProp(location, 'apartment', deal['1e9ee8939fba1c89c1db9348e23023d30866b488']);
-  setProp(location, 'city', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_sublocality']);
-  setProp(location, 'state', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_admin_area_level_1']);
-  setProp(location, 'zipcode', deal['c02cee8bf70bc825900eaf357738cc921cd29ed5_postal_code']);
+  setProp(location, 'city', deal['40f5914ee33610ada43ec64a769db7801689ab6b']);
+  setProp(location, 'state', deal['b23c94d573980ff67003139727ea2b7760137200']);
+  setProp(location, 'zipcode', deal['545a650034c5f7023420d7f012b1a2df5024a6a1']);
 
   var details = getProp(newProperty.property, 'details');
   setProp(details, 'price', deal['460a26a639ef3b52b94fafbea36692cbf4a19f9c']);
@@ -144,14 +150,14 @@ function buildProperty(deal,fxn) {
 
   setProp(details, 'bedrooms', deal['cbd454e4c7ae8d76298bee7c4a567fa144b22545']);
   setProp(details, 'bathrooms', deal['e305c643ef826967949493737e9c26eb7ea72be7']);
+  setProp(details, 'totalrooms', deal['018a380f8ec781628bd4a2b9324f706d82d3bf1d']);
+  
   setProp(details, 'availableOn', deal['4fe667043c8b8af2f71803c0a4d211389b23c2c0']);
   // TODO  totalRooms
   var desc = getProp(details,'description');
   if (!!deal['322f68d44c329c5a28c258cba99bfde3b9fb0179'])
     desc['_cdata'] = deal['322f68d44c329c5a28c258cba99bfde3b9fb0179'].replace(/\n/g, "<br />");
-  
-  console.log(propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]);
-  
+
   if (propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]) {
     setProp(details, 'propertyType', propertyTypes[deal['003e50245a8dc0949e426da21e5bfcfacd6f2b7d']]);
   } else {
@@ -160,82 +166,196 @@ function buildProperty(deal,fxn) {
   
   // amenities
   var amenities = { amenities: []};
-  if (!!deal['870b5f5f53a7ca8189aa7a317c886d7874839c09'])
-    amenities.amenities.push({pets: null})
+  var amenityIds = deal['cf97e3c0f0a4989500e96bfdad350f122d170d0b'].split(',');
+  var otherAmenities = [];
+  amenityIds.forEach(item => {
+    if (item=='') {
+      // skip
+    } else if (item=='44') {	
+      amenities.amenities.push({elevator: null});
+    } else if (item=='46') {
+      amenities.amenities.push({doorman: null});
+    } else if (item=='54') {
+      amenities.amenities.push({garage: null});
+    } else if (item=='55') {
+      amenities.amenities.push({parking: null});
+    } else if (item=='57') {
+      amenities.amenities.push({gym: null});
+    } else if (item=='58') {
+      amenities.amenities.push({pool: null});
+    } else if (item=='62') {
+      amenities.amenities.push({pets: null});
+    } else if (item=='63') {
+      amenities.amenities.push({storage: null});
+    } else if (item=='98') {
+      amenities.amenities.push({fireplace: null});
+    } else if (item=='99') {
+      amenities.amenities.push({dishwasher: null});
+    } else if (item=='100') {
+      amenities.amenities.push({furnished: null});
+    } else if (item=='102') {
+      amenities.amenities.push({washerDryer: null});
+    } else if (item=='109') {
+      amenities.amenities.push({balcony: null});
+    } else if (item=='112') {
+      amenities.amenities.push({patio: null});
+    } else if (item=='47') {
+      otherAmenities.push('Part-time Doorman');
+    } else if (item=='48') {
+      otherAmenities.push('Virtual Doorman');
+    } else if (item=='49') {
+      otherAmenities.push('Green Building');
+    } else if (item=='50') {
+      otherAmenities.push('Smoke-free');
+    } else if (item=='51') {
+      otherAmenities.push('Bike Room');
+    } else if (item=='52') {
+      otherAmenities.push('Package Room');
+    } else if (item=='53') {
+      otherAmenities.push('Laundry in Building');
+    } else if (item=='56') {
+      otherAmenities.push('Community Recreation Facilities');
+    } else if (item=='59') {
+      otherAmenities.push('Live-in Super');
+    } else if (item=='60') {
+      otherAmenities.push('Cats and Dogs Allowed');
+    } else if (item=='61') {
+      otherAmenities.push('Cats Only - No Dogs');
+    } else if (item=='64') {
+      otherAmenities.push('Media Room');
+    } else if (item=='65') {
+      otherAmenities.push("Children's Playroom");
+    } else if (item=='66') {
+      otherAmenities.push('Verizon FiOS Enabled');
+    } else if (item=='67') {
+      otherAmenities.push('Concierge');
+    } else if (item=='68') {
+      otherAmenities.push('Sublets Allowed');
+    } else if (item=='70') {
+      otherAmenities.push('Gifts Allowed');
+    } else if (item=='71') {
+      otherAmenities.push('Co-purchase Allowed');
+    } else if (item=='72') {
+      otherAmenities.push('Parents Buying Allowed');
+    } else if (item=='73') {
+      otherAmenities.push('Land Lease');
+    } else if (item=='74') {
+      otherAmenities.push('Cold Storage');
+    } else if (item=='96') {
+      otherAmenities.push('Hot Tub');
+    } else if (item=='97') {
+      otherAmenities.push('Central Air Conditioning');
+    } else if (item=='101') {
+      otherAmenities.push('Loft');
+    } else if (item=='103') {
+      otherAmenities.push('Pied-a-Terre Allowed');
+    } else if (item=='104') {
+      otherAmenities.push('Waterfront');
+    } else if (item=='105') {
+      otherAmenities.push('Waterview');
+    } else if (item=='106') {
+      otherAmenities.push('Guarantors Accepted');
+    } else if (item=='107') {
+      otherAmenities.push('Board Approval Required');
+    } else if (item=='108') {
+      otherAmenities.push('Sublet');
+    } else if (item=='110') {
+      otherAmenities.push('Courtyard');
+    } else if (item=='111') {
+      otherAmenities.push('Deck');
+    } else if (item=='113') {
+      otherAmenities.push('Terrace');
+    } else if (item=='114') {
+      otherAmenities.push('Roof Deck');
+    } else if (item=='115') {
+      otherAmenities.push('Garden');
+    }
+  });
+  
+  if (otherAmenities.length > 0)
+		amenities.amenities.push({other: otherAmenities.join(', ')});
 
   if (amenities.amenities.length > 0)
-    newProperty.property.push(amenities);
+    details.push(amenities);
   
   // Open houses
   if (deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210']) {
     var open_houses = { openHouses: []}, itemArry, startTime, endTime, newOpenHouse;
-    deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210'].split(",").map(function(item) {
+    deal['7583fec7ddcee5d2ecc0cbcb3f2ad7d9746db210'].split(",")
+      .filter(function (thing) { return thing.trim();})      
+      .map(function(item) {
       newOpenHouse = { openHouse: []};
 	    item = item.trim();
-      if (/\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}\w{2} to \d{1,2}:\d{2}\w{2}( APPT-ONLY)?/.test(item)) {
-      	itemArry = item.split(' ');
-      	startTime = itemArry[0] + ' ' + itemArry[1];
-      	endTime = itemArry[0] + ' ' + itemArry[3];
-        newOpenHouse.openHouse.push({startsAt: startTime}, {endsAt: endTime});
-        if (itemArry[4]=='APPT-ONLY') {
-          newOpenHouse.openHouse.push({apptOnly: null});
-        }
-        open_houses.openHouses.push(newOpenHouse);
+      itemArry = item.split(/\s/);
+      startTime = itemArry[0] + ' ' + itemArry[1];
+    	endTime = itemArry[0] + ' ' + itemArry[3];
+      newOpenHouse.openHouse.push({startsAt: startTime}, {endsAt: endTime});
+      if (itemArry[4]=='APPT-ONLY') {
+        newOpenHouse.openHouse.push({apptOnly: null});
       }
+      open_houses.openHouses.push(newOpenHouse);      
     });
     newProperty.property.push(open_houses);
   }
  
   // agents
-  var agents = { agents: []}, newAgent = { agent: []}, myAgent;  
-  /*
-  if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']) {
-    // billing
+  var agents = { agents: []}, newAgent = { agent: []}, myAgent;
+  if (req.query.partner=='nakedapartments') {
     newAgent = { agent: []};
-    myAgent = billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']);
-    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+    newAgent.agent.push({name: 'Grand and Co.'}, {email: 'hello@grandand.co'});
     agents.agents.push(newAgent);
-  }
-  */
-  if (deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']) {
-    // primary
-    newAgent = { agent: []};
-    myAgent = primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']);
-    console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
-    console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
-    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
-    agents.agents.push(newAgent);
-  }
-  if (deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
-    // secondary
-    newAgent = { agent: []};
-    myAgent = secondaryAgentById(deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']);
-    newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
-    agents.agents.push(newAgent);
-  }
-  if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca'] || deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a'] || deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
     newProperty.property.push(agents);
+  } else {
+    if (deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']) {
+      // primary
+      newAgent = { agent: []};
+      myAgent = primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']);
+      //console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
+      //console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
+      newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+      agents.agents.push(newAgent);
+    }
+    if (deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
+      // secondary
+      newAgent = { agent: []};
+      myAgent = secondaryAgentById(deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']);
+      newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
+      agents.agents.push(newAgent);
+    }
+    if (deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca'] || deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a'] || deal['c476ecc1c31a94902db81c5b4f2de6cb67b19f1c']) {
+      newProperty.property.push(agents);
+    }
   }
-
+  
   // media
   var media = { media: []};
   var albumPhotosKey = encodeURIComponent(deal.id);
-  s3.listObjects({Prefix: albumPhotosKey}, function(err, data) {
-    if (err) {
-      console.log(err);
-    }
-    // `this` references the AWS.Response instance that represents the response
-    var href = this.request.httpRequest.endpoint.href;
-    var bucketUrl = href + albumBucketName + '/';
-    var photos = data.Contents.map(function(photo) {
-      var photoKey = photo.Key;
-      var photoUrl = bucketUrl + photoKey;
+  var imgPaths = getOrCreateImagePaths(deal.id + ''); // convert to string before querying lowdb
+  if (imgPaths && imgPaths.length > 0) {
+    // write images in order
+    imgPaths.map(function(path) {
+      var photoUrl = 'https://s3.amazonaws.com/grandandco/' + path;
       media.media.push({photo: { _attr: { url: photoUrl} }});
     });
     newProperty.property.push(media);
-    // TODO: add some error checking here so we know XML contains all required fields 
     fxn(newProperty);
-  })
+  } else {
+    s3.listObjects({Prefix: albumPhotosKey}, function(err, data) {
+      if (err) {
+        console.log(err);
+      }
+      // `this` references the AWS.Response instance that represents the response
+      var href = this.request.httpRequest.endpoint.href;
+      var bucketUrl = href + albumBucketName + '/';
+      var photos = data.Contents.map(function(photo) {
+        var photoKey = photo.Key;
+        var photoUrl = bucketUrl + photoKey;
+        media.media.push({photo: { _attr: { url: photoUrl} }});
+      });
+      newProperty.property.push(media);
+      fxn(newProperty);
+    })
+  }
 }
 
 function addDealLink(item) {
@@ -333,10 +453,28 @@ function statusById(id) {
   }
 }
 
+function getOrCreateImagePaths(dealId) {
+  var post = db.get('posts')
+    .find({ id: dealId })
+    .value();
+  if (post==null) {
+    post = db.get('posts')
+      .push({ id: dealId, images: []})
+      .write();
+    return [];
+  } else {
+    return post.images;
+  }
+}
+
 // Define the routes that our API is going to use.
 var routes = function(app) {
 
   app.get("/", function(req, res) {
+    res.render('index');
+  });
+  
+  app.get("/blah", function(req, res) {
     res.render('index');
   });
   
@@ -363,7 +501,13 @@ var routes = function(app) {
         var StreetEasyListings = [];
         var myObj = JSON.parse(JSON.stringify(xmlObj)); // clone object
         allListings.forEach(item => {
-          if (!!item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']) { // streeteasy tag
+          if (item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']==null) {
+            // skip
+          } else if (item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f'].indexOf(',') > -1) {
+            StreetEasyListings.push(item);
+          } else if (req.query.partner=='nakedapartments' && item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']=='174') {
+            StreetEasyListings.push(item);
+          } else if (req.query.partner==null && item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']=='42') {
             StreetEasyListings.push(item);
           }
           // check to see if item has URL, if not add it
@@ -371,7 +515,7 @@ var routes = function(app) {
         });
         var idx = 0;
         for (let deal of StreetEasyListings) {
-          buildProperty(deal, function(property) {
+          buildProperty(deal, req, function(property) {
             if (property) {
               myObj['streeteasy'][1]['properties'].push(property);
             }
@@ -389,10 +533,11 @@ var routes = function(app) {
       }
     );
   }); 
-  
+    
   app.get("/deals/:pid", function(req, res) {
     request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
       if (!error && response.statusCode == 200) {
+        var imgPaths = getOrCreateImagePaths(req.params.pid);       
         var response_obj = JSON.parse(body)
         var vars = {
           bucketName: process.env.BUCKET_NAME,
@@ -400,14 +545,99 @@ var routes = function(app) {
           identityPoolId: process.env.IDENTITY_POOL_ID,
           pid: req.params.pid,
           title: response_obj['data']['title'],
-          errors: validateProperty(response_obj['data'])
+          errors: validateProperty(response_obj['data']),
+          imgPaths: imgPaths
         }
-        res.render('deal', vars);
+        res.render('deals', vars);
       } else {
         res.send('Whoops, something went wrong. Try refreshing the page.');
       }
     });
+  });
+  
+  app.post("/upload", function(req, res) {
+    // FIXME - this does nothing. make it so it doesn't get called from dropzone
+    res.status(200);
+    res.send('sorted!');
+  });
+  
+  app.post("/sorted", function(req, res) {
+    console.log(req.body);
+    var params = req.body;
+    db.get('posts')
+      .find({ id: params.id })
+      .set( 'images', params.imgPaths)
+      .write();           
+    res.status(200);
+    res.send('sorted!');
+  });
+
+  app.get("/printdb", function(req, res) {
+    // res.send(db.get('posts'));    
   })
+  
+  app.post("/deals/:pid/duplicate", function(req, res) {    
+    request.post({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "/duplicate?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+      if (!error && response.statusCode == 201) {
+        // var imgPaths = getOrCreateImagePaths(req.params.pid);       
+        var response_obj = JSON.parse(body)
+        var dealLink = "https://grandco.glitch.me/deals/"+response_obj['data']['id'];
+        // update feed link of new deal in PD to point to new id
+        request({ json: {"3d1491ff621c8ce3e482fd9362caf532b1f0d904": dealLink, "1ebd49852bc24dadf2ac29b68f0afa251dc8667a": '166'}, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + response_obj['data']['id'] + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+          if (!error && response.statusCode == 200) { 
+            // copy images on AWS                        
+            var oldPrefix = req.params.pid + '/';
+            var newPrefix = response_obj['data']['id'] + '/';
+            s3.listObjects({Prefix: oldPrefix}, function(err, data) {
+              if (data.Contents.length) {
+                async.each(data.Contents, function(file, cb) {
+                  var params = {
+                    CopySource: albumBucketName + '/' + file.Key,
+                    Key: file.Key.replace(oldPrefix, newPrefix),
+                    ACL: 'public-read'
+                  };
+                  s3.copyObject(params, function(copyErr, copyData){
+                    if (copyErr) {
+                      console.log(err);
+                    }
+                    else {
+                      console.log('Copied: ', params.Key);
+                      cb();
+                    }
+                  });          
+                }, function(err, data) {
+                  if (err) {
+                    console.log(err);
+                    res.send('error!');
+                  } else {
+                    // create images in db
+                    var sourcePaths = db.get('posts').find({id: req.params.pid}).get('images').value();
+                    var destPaths = [];
+                    sourcePaths.forEach(item => {
+                      destPaths.push(response_obj['data']['id'] + "/" + item.split('/')[1])
+                    });
+                    db.get('posts')
+                        .push({ id: response_obj['data']['id'], images: destPaths})
+                        .write();
+                    // success!
+                    res.setHeader('Content-Type', 'application/json');
+                    res.send(JSON.stringify({ id: response_obj['data']['id'] }));
+                  }
+                });
+              }
+            });            
+          } else {
+            console.log(response);
+          }
+        });        
+      } else {
+        res.send('Whoops, something went wrong. Try refreshing the page.');
+      }
+    });
+  });
+  
+  
+  
 }
 
 module.exports = routes;
