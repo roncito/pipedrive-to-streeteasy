@@ -85,6 +85,19 @@
 <script>
   var myDropZone;
   $(document).ready(function(){
+
+    $(document).on("click", "#pipedrive-dup-link", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var r = confirm("Duplicate this deal in Pipedrive?");
+      if (r == true) {
+          document.getElementById('activity-indicator').style.display='block';        
+          $.post( "/deals/{{pid}}/duplicate", function(data) {
+            window.location.replace('/deals/'+data.id);
+          })
+      }
+    });    
+    
     $('.sortable').sortable({
       update: function( event, ui ) {
         var previewIds = $(this).sortable('toArray');
@@ -225,6 +238,7 @@
       document.getElementById('sidebar').innerHTML = sidebarHTML;
       document.getElementById('pipedrive-link').href = 'https://grandandco.pipedrive.com/deal/' + albumName;
       document.getElementById('pipedrive-link').innerHTML = '{{title}}';
+      document.getElementById('pipedrive-dup-link').style.display='inline-block';
     }
 
     function getHtml(template) {

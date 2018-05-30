@@ -533,26 +533,7 @@ var routes = function(app) {
       }
     );
   }); 
-  
-  app.get("/dealx/:pid", function(req, res) {
-    request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
-      if (!error && response.statusCode == 200) {
-        var response_obj = JSON.parse(body)
-        var vars = {
-          bucketName: process.env.BUCKET_NAME,
-          region: process.env.REGION,
-          identityPoolId: process.env.IDENTITY_POOL_ID,
-          pid: req.params.pid,
-          title: response_obj['data']['title'],
-          errors: validateProperty(response_obj['data'])
-        }
-        res.render('deal', vars);
-      } else {
-        res.send('Whoops, something went wrong. Try refreshing the page.');
-      }
-    });
-  });
-  
+    
   app.get("/deals/:pid", function(req, res) {
     request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
       if (!error && response.statusCode == 200) {
@@ -567,7 +548,7 @@ var routes = function(app) {
           errors: validateProperty(response_obj['data']),
           imgPaths: imgPaths
         }
-        res.render('dealx', vars);
+        res.render('deals', vars);
       } else {
         res.send('Whoops, something went wrong. Try refreshing the page.');
       }
@@ -592,8 +573,68 @@ var routes = function(app) {
   });
 
   app.get("/printdb", function(req, res) {
-    res.send(db.get('posts'));
+    // res.send(db.get('posts'));    
   })
+  
+  app.post("/deals/:pid/duplicate", function(req, res) {    
+    request.post({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "/duplicate?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+      if (!error && response.statusCode == 201) {
+        // var imgPaths = getOrCreateImagePaths(req.params.pid);       
+        var response_obj = JSON.parse(body)
+        var dealLink = "https://grandco.glitch.me/deals/"+response_obj['data']['id'];
+        // update feed link of new deal in PD to point to new id
+        request({ json: {"3d1491ff621c8ce3e482fd9362caf532b1f0d904": dealLink, "1ebd49852bc24dadf2ac29b68f0afa251dc8667a": '166'}, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + response_obj['data']['id'] + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+          if (!error && response.statusCode == 200) { 
+            // copy images on AWS                        
+            var oldPrefix = req.params.pid + '/';
+            var newPrefix = response_obj['data']['id'] + '/';
+            s3.listObjects({Prefix: oldPrefix}, function(err, data) {
+              if (data.Contents.length) {
+                async.each(data.Contents, function(file, cb) {
+                  var params = {
+                    CopySource: albumBucketName + '/' + file.Key,
+                    Key: file.Key.replace(oldPrefix, newPrefix),
+                    ACL: 'public-read'
+                  };
+                  s3.copyObject(params, function(copyErr, copyData){
+                    if (copyErr) {
+                      console.log(err);
+                    }
+                    else {
+                      console.log('Copied: ', params.Key);
+                      cb();
+                    }
+                  });          
+                }, function(err, data) {
+                  if (err) {
+                    console.log(err);
+                    res.send('error!');
+                  } else {
+                    // create images in db
+                    var sourcePaths = db.get('posts').find({id: req.params.pid}).get('images').value();
+                    var destPaths = [];
+                    sourcePaths.forEach(item => {
+                      destPaths.push(response_obj['data']['id'] + "/" + item.split('/')[1])
+                    });
+                    db.get('posts')
+                        .push({ id: response_obj['data']['id'], images: destPaths})
+                        .write();
+                    // success!
+                    res.setHeader('Content-Type', 'application/json');
+                    res.send(JSON.stringify({ id: response_obj['data']['id'] }));
+                  }
+                });
+              }
+            });            
+          } else {
+            console.log(response);
+          }
+        });        
+      } else {
+        res.send('Whoops, something went wrong. Try refreshing the page.');
+      }
+    });
+  });
   
   
   
