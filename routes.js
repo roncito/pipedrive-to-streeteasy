@@ -583,7 +583,7 @@ var routes = function(app) {
         var response_obj = JSON.parse(body)
         var dealLink = "https://grandco.glitch.me/deals/"+response_obj['data']['id'];
         // update feed link of new deal in PD to point to new id
-        request({ json: {"3d1491ff621c8ce3e482fd9362caf532b1f0d904": dealLink, "1ebd49852bc24dadf2ac29b68f0afa251dc8667a": '166'}, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + response_obj['data']['id'] + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+        request({ json: {"3d1491ff621c8ce3e482fd9362caf532b1f0d904": dealLink, "25c2c17e1ebef818af09df0bc7a4fd8b9401236f": null }, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + response_obj['data']['id'] + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
           if (!error && response.statusCode == 200) { 
             // copy images on AWS                        
             var oldPrefix = req.params.pid + '/';
