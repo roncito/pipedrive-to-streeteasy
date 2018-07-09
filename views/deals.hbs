@@ -144,7 +144,7 @@
             // write images in order
             '{{imgPaths}}'.split(',').map(function(path) {
               // 2/angry_unicorn.png
-              var photoUrl = 'https://s3.amazonaws.com/grandandco/' + path;
+              var photoUrl = 'http://www.batteryharris.com/' + path;
               mockFile.name = path;
               dz.options.addedfile.call(dz, mockFile);
               dz.options.thumbnail.call(dz, mockFile, photoUrl);

@@ -1,0 +1,172 @@
+{{#contentFor "head"}}
+  <style>
+    ul {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+    textarea {
+      outline: none;
+      resize: none;      
+    }
+    .boxsizingBorder {
+      -webkit-box-sizing: border-box;
+         -moz-box-sizing: border-box;
+              box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      padding: 10px;
+      border: 0;
+    }
+    li div { display: table-cell; vertical-align: middle; }
+    .checkBox { margin-right:12px; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.1/clipboard.min.js"></script>
+<script>
+  var blurb1 = `Hi,
+
+Thanks for reaching out on this!
+
+I would be happy to show you at the earliest time that works for you. Please let me know when works for you and we can confirm an appointment ASAP.
+
+Could you please tell me a bit about your apartment search-- move date, budget, # of beds needed, pets/no pets? # of roommates / living situation, etc.--so I could send over a few other exclusive listings which you may also be interested in seeing at the same time?\n\n`;
+  
+  var blurb2 = `Hi,
+
+Thanks for reaching out on this!
+
+I would be happy to show you at the earliest time that works for you. Please let me know when works for you and we can confirm an appointment ASAP.
+
+Could you please tell me a bit about your apartment search-- move date, budget, # of beds needed, pets/no pets? # of roommates / living situation, etc.--so I could send over a few other exclusive listings which you may also be interested in seeing at the same time?
+
+In the meantime, I’ll include a few similar ones here below for you to consider:\n\n`;
+
+  var blurb3 = `Hi,
+
+Thanks for reaching out on this!
+
+This unit actually rented yesterday, but we have quite a few other similar listings nearby and I would be happy to show you them at the earliest time that works for you.
+
+I’ll include a few simialr ones here below for you to consider and if you could tell me a bit more about your budget and search requirements I could further curate the list for you.
+
+In the meanwhile, please let me know if any of these could work for you and if you would like to schedule a time to come see. We could show anytime!\n\n`;
+</script>
+
+{{/contentFor}}
+
+{{#if listings}}
+  <p class="content-padded" style="margin-left:1.825em;">
+    <input class="checkBox toggleme" type="checkbox" onClick="toggle(this)">
+  </p>
+  <div class="card">
+    <ul style="height:263px;overflow:auto">
+      {{#each listings}}
+        <li class="table-view-cell">
+          <div>
+            <label>
+            <input class="checkBox" type="checkbox" name="chkbox" data-link="{{this.link}}" data-description="{{this.description}}"></div>
+            </label>
+          <div><label>{{this.title}} (${{this.price}})</label></div>
+        </li>                    
+      {{/each}}
+    </ul>
+  </div>
+  <button class="btn copy-btn content-padded" data-clipboard-target="#txtout">
+      copy
+  </button>
+  <div class="badge badge-positive badge-inverted" style="margin-top:1.0rem;display:none;" id="copy-notification">copied!</div>
+
+  <div class="card">
+    <textarea class="boxsizingBorder" id="txtout" rows="6" cols="10"></textarea>
+  </div>
+{{else}}
+  <p class="content-padded" style="text-align:center;margin-top:2rem;"><em>There are currently no live properties.</em></p>
+{{/if}}
+
+{{#contentFor "footer"}}
+  <script>
+    // on checked, write to text box
+    $(document).ready(function() {
+
+      var clipboard = new ClipboardJS('.copy-btn');
+      clipboard.on('success', function(e) {
+        $('#copy-notification').fadeIn();
+        setTimeout(function() {$('#copy-notification').fadeOut()}, 500);
+        e.clearSelection();
+      });
+      
+      if (window.self !== window.top) {
+        $('body, textarea').css('font-size','90%');
+      }
+      
+      var ulHeight = $(window).height() - 245;
+      //$('ul').css('height', ulHeight+'px');
+      $('.checkBox').change(function() {
+        writeListings($( "input:checked" ));
+      });
+
+      $( ".copy-btn" ).on( "click", function(e) {
+        $(e.target).blur();
+      });
+      
+      $('.table-view-cell').on('click', 'input[type="checkbox"]', function(e) {
+        e.stopPropagation();
+      });
+
+      $( ".table-view-cell" ).on( "click", function(e) {
+        $(this).find('input[type=checkbox]').click(); 
+      });
+
+      $( ".control-item" ).on( "click", function(e) {
+        $('.control-item').each(function(i, obj) {
+          $(obj).removeClass('active')
+        });
+        var activeBlurb = $(e.target).attr('class').split(/\s+/).pop();
+        writeListings($("input:checked"), activeBlurb);
+        $(e.target).addClass('active');
+      });
+      
+      $('textarea').focus(function(e) {
+        e.target.setSelectionRange(0,99999);
+        jQuery(e.target).one('mouseup', function(e) {
+          e.preventDefault();
+        });
+      });
+      
+    });
+    
+    function writeListings(arry,blurbTag) {
+      var out = '';
+      if (blurbTag == null){
+        blurbTag = $('.control-item.active').attr('class').split(/\s+/).slice(-2)[0];
+      }
+      if (blurbTag=='blurb1') {
+        out = blurb1; 
+      } else if (blurbTag=='blurb2') {
+        out = blurb2;  
+      } else if (blurbTag=='blurb3') {
+        out = blurb3;
+      }
+      $('textarea').val('');
+      $.each(arry, function( index, element ) {
+        if (element.classList.contains('toggleme')) {
+          return true;
+        }
+        out = out + '- ' + $(element).data('description') + ' →\n' + $(element).data('link') + '\n\n'
+      });
+      if (blurbTag=='blurb1' || blurbTag=='blurb2' || blurbTag=='blurb3') {
+        out = out + 'Best,\nDavid\n';
+      }
+      $('textarea').val(out);
+    }
+    
+    function toggle(source) {
+      checkboxes = document.getElementsByName('chkbox');
+      for(var i=0, n=checkboxes.length;i<n;i++) {
+        checkboxes[i].checked = source.checked;
+      }
+    }
+    
+  </script>
+{{/contentFor}}
