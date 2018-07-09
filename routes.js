@@ -12,6 +12,16 @@ var FileSync = require('lowdb/adapters/FileSync')
 var adapter = new FileSync('.data/db.json')
 var db = low(adapter)
 
+// Configure basic auth
+var auth = require('http-auth');
+var basic = auth.basic({
+    realm: 'SUPER SECRET STUFF'
+}, function(username, password, callback) {
+    callback(username == process.env.AUTH_USERNAME && password == process.env.AUTH_PASSWORD);
+});
+// Create middleware that can be used to protect routes with basic auth
+var authMiddleware = auth.connect(basic);
+
 // default post list
 db.defaults({ posts: []}).write();
 
@@ -310,8 +320,6 @@ function buildProperty(deal, req, fxn) {
       // primary
       newAgent = { agent: []};
       myAgent = primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']);
-      //console.log(billingAgentById(deal['aa9ec1d69792cbbfd7f15cf4c98ea334197f03ca']));
-      //console.log(primaryAgentById(deal['f70ffcba8da2d1bd2f98107d648222d43cbdb34a']));
       newAgent.agent.push({name: myAgent[0]}, {email: myAgent[1]});
       agents.agents.push(newAgent);
     }
@@ -334,7 +342,7 @@ function buildProperty(deal, req, fxn) {
   if (imgPaths && imgPaths.length > 0) {
     // write images in order
     imgPaths.map(function(path) {
-      var photoUrl = 'https://s3.amazonaws.com/grandandco/' + path;
+      var photoUrl = 'http://www.batteryharris.com/' + path;
       media.media.push({photo: { _attr: { url: photoUrl} }});
     });
     newProperty.property.push(media);
@@ -470,15 +478,81 @@ function getOrCreateImagePaths(dealId) {
 // Define the routes that our API is going to use.
 var routes = function(app) {
 
-  app.get("/", function(req, res) {
+  app.get("/", authMiddleware, function(req, res) {
     res.render('index');
   });
-  
-  app.get("/blah", function(req, res) {
-    res.render('index');
+
+    app.get("/integrations/frontapp", function(req, res) {
+    res.status(200).send("OK");
   });
   
-  app.get("/deals", function(req, res) {
+  app.get("/eb", authMiddleware, function(req, res) {
+    var goOnThen = true, offset = 0, allListings = [];
+    // handle pagination
+    async.whilst(
+      function () { return goOnThen; },
+        function (callback) {
+          request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals?start=" + offset + "&api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+            if (!error && response.statusCode == 200) { 
+              var response_obj = JSON.parse(body)
+              allListings = allListings.concat(response_obj.data);
+              offset = response_obj.additional_data.pagination.next_start;
+              goOnThen = response_obj.additional_data.pagination.more_items_in_collection;
+            } else {
+              goOnThen = false;
+            }
+            callback();
+          });            
+        },
+      function (err) {
+        // done loading!
+        var StreetEasyListings = [];
+        var myObj = JSON.parse(JSON.stringify(xmlObj)); // clone object
+        allListings.forEach(item => {
+          if (item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']==null) {
+            // skip
+          } else if (item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f'].indexOf(',') > -1) {
+            StreetEasyListings.push(item);
+          } else if (req.query.partner=='nakedapartments' && item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']=='174') {
+            StreetEasyListings.push(item);
+          } else if (req.query.partner==null && item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']=='42') {
+            StreetEasyListings.push(item);
+          }
+          // check to see if item has URL, if not add it
+          addDealLink(item);
+        });
+        var idx = 0, listings = [], myDeal = {};
+
+        for (let deal of StreetEasyListings) {          
+          
+          if (deal['25c2c17e1ebef818af09df0bc7a4fd8b9401236f'] 
+              && deal['ffc638d2a41824b30d7c0088903c0b6cee5da78a']
+              && deal['1ebd49852bc24dadf2ac29b68f0afa251dc8667a']=='151'
+              && deal['db856b47ec6d743bd178f979ca762b560ae77fe5']=='149'
+             ) {
+            myDeal = {
+              title: deal['title'],
+              link: deal['ffc638d2a41824b30d7c0088903c0b6cee5da78a'],
+              description: deal['697ef0c9efa0c7c865759410c0dd81bea217b7be'],
+              bedrooms: deal['cbd454e4c7ae8d76298bee7c4a567fa144b22545'],
+              price: deal['460a26a639ef3b52b94fafbea36692cbf4a19f9c']
+            }
+            listings.push(myDeal)
+          }
+        }
+        // sort by [bedrooms, price]
+        listings.sort(function(a,b) {return a.bedrooms - b.bedrooms || a.price - b.price;} ); 
+        
+        var vars = {
+          listings: listings,
+          layout: 'ratchet'
+        }
+        res.render('emailbuilder', vars);      
+      }
+    );
+  });
+  
+  app.get(["/deals","/08d0ab10e8808b991d913621e9a4d687"], function(req, res) {
     var goOnThen = true, offset = 0, allListings = [];
     // handle pagination
     async.whilst(
@@ -534,7 +608,7 @@ var routes = function(app) {
     );
   }); 
     
-  app.get("/deals/:pid", function(req, res) {
+  app.get("/deals/:pid", authMiddleware, function(req, res) {
     request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
       if (!error && response.statusCode == 200) {
         var imgPaths = getOrCreateImagePaths(req.params.pid);       
@@ -573,7 +647,7 @@ var routes = function(app) {
   });
 
   app.get("/printdb", function(req, res) {
-    // res.send(db.get('posts'));    
+    res.send(db.get('posts'));    
   })
   
   app.post("/deals/:pid/duplicate", function(req, res) {    
@@ -583,7 +657,7 @@ var routes = function(app) {
         var response_obj = JSON.parse(body)
         var dealLink = "https://grandco.glitch.me/deals/"+response_obj['data']['id'];
         // update feed link of new deal in PD to point to new id
-        request({ json: {"3d1491ff621c8ce3e482fd9362caf532b1f0d904": dealLink, "1ebd49852bc24dadf2ac29b68f0afa251dc8667a": '166'}, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + response_obj['data']['id'] + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+        request({ json: {"3d1491ff621c8ce3e482fd9362caf532b1f0d904": dealLink, "25c2c17e1ebef818af09df0bc7a4fd8b9401236f": null }, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + response_obj['data']['id'] + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
           if (!error && response.statusCode == 200) { 
             // copy images on AWS                        
             var oldPrefix = req.params.pid + '/';

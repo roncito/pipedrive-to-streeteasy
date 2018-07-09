@@ -14,7 +14,8 @@
     "xml":"^1.0.1",
     "express-hbs":"^1.0.4",
     "aws-sdk":"^2.190.0",
-    "lowdb": "1.x"
+    "lowdb": "1.x",
+    "http-auth": "3.2.3"
 	},
   "engines": {
     "node": "8.x"
