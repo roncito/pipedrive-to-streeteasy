@@ -518,8 +518,6 @@ var routes = function(app) {
           } else if (req.query.partner==null && item['25c2c17e1ebef818af09df0bc7a4fd8b9401236f']=='42') {
             StreetEasyListings.push(item);
           }
-          // check to see if item has URL, if not add it
-          addDealLink(item);
         });
         var idx = 0, listings = [], myDeal = {};
 
@@ -636,7 +634,6 @@ var routes = function(app) {
   });
   
   app.post("/sorted", function(req, res) {
-    console.log(req.body);
     var params = req.body;
     db.get('posts')
       .find({ id: params.id })
@@ -649,6 +646,50 @@ var routes = function(app) {
   app.get("/printdb", function(req, res) {
     res.send(db.get('posts'));    
   })
+
+  app.get("/unsubscribe", function(req, res) {
+    if (req.query.key==process.env.MAILCHIMP_SECRET) {
+      res.status(200);
+      res.send('Enjoy!');
+    } else {
+      res.status(403);
+      res.send('None shall pass');
+    }
+  }) 
+  
+  app.post("/unsubscribe", function(req, res) {
+    if (req.query.key==process.env.MAILCHIMP_SECRET) {
+      var params = req.body;
+      // parse mailchimp post
+      console.log(params.type);
+      console.log(params.data.email);      
+      // Find Pipedrive user
+      request.get({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/persons/find?term=" + encodeURIComponent(params.data.email) + "&search_by_email=1&api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+        if (!error && response.statusCode == 200) {
+          // Update Pipedrive user unsubscribed value: 618efbabd34f794f98ff02637a7811b38f0fa85c
+          var response_obj = JSON.parse(body)
+          var pipedrivePersonId = response_obj.data[0].id;          
+          request({ json: {"618efbabd34f794f98ff02637a7811b38f0fa85c": "175" }, method: 'PUT', url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/persons/" + pipedrivePersonId + "?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
+            if (!error && response.statusCode == 200) { 
+              console.log('success!');
+            } else {
+              console.log('fail!');
+              console.log(response);
+            }
+            res.status(200);
+            res.send('Thank you, Mailchimp!');
+          });          
+
+        } else {
+          res.send('Whoops, something went wrong. Try refreshing the page.');
+        }
+      });      
+    } else {
+      res.status(403);
+      res.send('None shall pass');
+    }
+
+  })  
   
   app.post("/deals/:pid/duplicate", function(req, res) {    
     request.post({ url: "https://" + process.env.PIPEDRIVE_SUBDOMAIN + ".pipedrive.com/v1/deals/" + req.params.pid + "/duplicate?api_token=" + process.env.PIPEDRIVE_API_TOKEN }, function(error, response, body) { 
@@ -675,7 +716,6 @@ var routes = function(app) {
                       console.log(err);
                     }
                     else {
-                      console.log('Copied: ', params.Key);
                       cb();
                     }
                   });          
