@@ -55,6 +55,7 @@ In the meanwhile, please let me know if any of these could work for you and if y
 
 {{/contentFor}}
 
+
 {{#if listings}}
   <p class="content-padded" style="margin-left:1.825em;">
     <input class="checkBox toggleme" type="checkbox" onClick="toggle(this)">
@@ -67,7 +68,7 @@ In the meanwhile, please let me know if any of these could work for you and if y
             <label>
             <input class="checkBox" type="checkbox" name="chkbox" data-link="{{this.link}}" data-description="{{this.description}}"></div>
             </label>
-          <div><label>{{this.title}} (${{this.price}})</label></div>
+          <div><label>{{this.title}} ({{this.bedrooms}}BR, {{this.description}}, ${{this.price}})</label></div>
         </li>                    
       {{/each}}
     </ul>
