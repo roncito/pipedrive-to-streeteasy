@@ -345,6 +345,9 @@ function buildProperty(deal, req, fxn) {
       var photoUrl = 'http://www.batteryharris.com/' + path;
       media.media.push({photo: { _attr: { url: photoUrl} }});
     });
+    if (deal['87b6219f1321de2a4bfca74906fb865049da8bb9']) {
+      media.media.push({video: { _attr: { url: deal['87b6219f1321de2a4bfca74906fb865049da8bb9']} }});
+    } 
     newProperty.property.push(media);
     fxn(newProperty);
   } else {
@@ -360,6 +363,9 @@ function buildProperty(deal, req, fxn) {
         var photoUrl = bucketUrl + photoKey;
         media.media.push({photo: { _attr: { url: photoUrl} }});
       });
+      if (deal['87b6219f1321de2a4bfca74906fb865049da8bb9']) {
+        media.media.push({video: { _attr: { url: deal['87b6219f1321de2a4bfca74906fb865049da8bb9']} }});
+      }   
       newProperty.property.push(media);
       fxn(newProperty);
     })
@@ -482,11 +488,11 @@ var routes = function(app) {
     res.render('index');
   });
 
-    app.get("/integrations/frontapp", function(req, res) {
+  app.get("/integrations/frontapp", function(req, res) {
     res.status(200).send("OK");
   });
   
-  app.get("/eb", authMiddleware, function(req, res) {
+  app.get("/eb", function(req, res) {
     var goOnThen = true, offset = 0, allListings = [];
     // handle pagination
     async.whilst(
@@ -612,7 +618,7 @@ var routes = function(app) {
         var imgPaths = getOrCreateImagePaths(req.params.pid);       
         var response_obj = JSON.parse(body)
         var vars = {
-          bucketName: process.env.BUCKET_NAME,
+          bucketName: process.env.UPLOAD_BUCKET_NAME,
           region: process.env.REGION,
           identityPoolId: process.env.IDENTITY_POOL_ID,
           pid: req.params.pid,
@@ -648,7 +654,7 @@ var routes = function(app) {
   })
 
   app.get("/unsubscribe", function(req, res) {
-    if (req.query.key==process.env.MAILCHIMP_SECRET) {
+    if (req.query.key==process.env.APP_SECRET) {
       res.status(200);
       res.send('Enjoy!');
     } else {
@@ -658,7 +664,7 @@ var routes = function(app) {
   }) 
   
   app.post("/unsubscribe", function(req, res) {
-    if (req.query.key==process.env.MAILCHIMP_SECRET) {
+    if (req.query.key==process.env.APP_SECRET) {
       var params = req.body;
       // parse mailchimp post
       console.log(params.type);
