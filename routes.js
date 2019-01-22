@@ -161,7 +161,10 @@ function buildProperty(deal, req, fxn) {
   setProp(details, 'bedrooms', deal['cbd454e4c7ae8d76298bee7c4a567fa144b22545']);
   setProp(details, 'bathrooms', deal['e305c643ef826967949493737e9c26eb7ea72be7']);
   setProp(details, 'totalrooms', deal['018a380f8ec781628bd4a2b9324f706d82d3bf1d']);
-  
+  if (deal['9576346b24111840374c4aafd040c4067a2429c7']){
+    setProp(details, 'squareFeet', deal['9576346b24111840374c4aafd040c4067a2429c7']);
+  }
+
   setProp(details, 'availableOn', deal['4fe667043c8b8af2f71803c0a4d211389b23c2c0']);
   // TODO  totalRooms
   var desc = getProp(details,'description');
@@ -342,9 +345,12 @@ function buildProperty(deal, req, fxn) {
   if (imgPaths && imgPaths.length > 0) {
     // write images in order
     imgPaths.map(function(path) {
-      var photoUrl = 'http://www.batteryharris.com/' + path;
+      var photoUrl = 'https://res.cloudinary.com/grandandco/image/fetch/w_1200,h_800,c_limit/g_south_east,x_5,y_5,l_grandandco-watermark/https://s3.amazonaws.com/www.batteryharris.com/' + path;
       media.media.push({photo: { _attr: { url: photoUrl} }});
     });
+    if (deal['87b6219f1321de2a4bfca74906fb865049da8bb9']) {
+      media.media.push({video: { _attr: { url: deal['87b6219f1321de2a4bfca74906fb865049da8bb9']} }});
+    } 
     newProperty.property.push(media);
     fxn(newProperty);
   } else {
@@ -357,9 +363,12 @@ function buildProperty(deal, req, fxn) {
       var bucketUrl = href + albumBucketName + '/';
       var photos = data.Contents.map(function(photo) {
         var photoKey = photo.Key;
-        var photoUrl = bucketUrl + photoKey;
+        var photoUrl = 'https://res.cloudinary.com/grandandco/image/fetch/w_1200,h_800,c_limit/g_south_east,x_5,y_5,l_grandandco-watermark/https://s3.amazonaws.com/www.batteryharris.com/' + bucketUrl + photoKey;
         media.media.push({photo: { _attr: { url: photoUrl} }});
       });
+      if (deal['87b6219f1321de2a4bfca74906fb865049da8bb9']) {
+        media.media.push({video: { _attr: { url: deal['87b6219f1321de2a4bfca74906fb865049da8bb9']} }});
+      }   
       newProperty.property.push(media);
       fxn(newProperty);
     })
@@ -407,6 +416,8 @@ function primaryAgentById(id) {
     return ['Jen Taher','jtaher@grandand.co'];
   } else if (id == '135') {
     return ['Grand and Co.','hello@grandand.co'];
+  } else if (id == '177') {
+    return ['Grand and Co.','se@grandand.co'];
   } else {
     return ['Grand and Co.','hello@grandand.co'];
   }
@@ -421,6 +432,8 @@ function secondaryAgentById(id) {
     return ['Jen Taher','jtaher@grandand.co'];
   } else if (id == '131') {
     return ['Grand and Co.','hello@grandand.co'];
+  } else if (id == '178') {
+    return ['Grand and Co.','se@grandand.co'];
   } else {
     return ['Grand and Co.','hello@grandand.co'];
   }
@@ -482,11 +495,11 @@ var routes = function(app) {
     res.render('index');
   });
 
-    app.get("/integrations/frontapp", function(req, res) {
+  app.get("/integrations/frontapp", function(req, res) {
     res.status(200).send("OK");
   });
   
-  app.get("/eb", authMiddleware, function(req, res) {
+  app.get("/eb", function(req, res) {
     var goOnThen = true, offset = 0, allListings = [];
     // handle pagination
     async.whilst(
@@ -593,8 +606,13 @@ var routes = function(app) {
             }
             idx++;
             if (idx == StreetEasyListings.length){
-              res.set('Content-Type', 'text/xml');
-              res.send(xml(myObj, { declaration: true, indent: '\t' }));
+              if (req.query.content_type=='JSON') {
+                res.setHeader('Content-Type', 'application/json');
+                res.send(JSON.stringify(myObj));
+              } else {
+                res.set('Content-Type', 'text/xml');
+                res.send(xml(myObj, { declaration: true, indent: '\t' }));
+              }
             }
           });
         }
@@ -612,7 +630,7 @@ var routes = function(app) {
         var imgPaths = getOrCreateImagePaths(req.params.pid);       
         var response_obj = JSON.parse(body)
         var vars = {
-          bucketName: process.env.BUCKET_NAME,
+          bucketName: process.env.UPLOAD_BUCKET_NAME,
           region: process.env.REGION,
           identityPoolId: process.env.IDENTITY_POOL_ID,
           pid: req.params.pid,
@@ -648,7 +666,7 @@ var routes = function(app) {
   })
 
   app.get("/unsubscribe", function(req, res) {
-    if (req.query.key==process.env.MAILCHIMP_SECRET) {
+    if (req.query.key==process.env.APP_SECRET) {
       res.status(200);
       res.send('Enjoy!');
     } else {
@@ -658,7 +676,7 @@ var routes = function(app) {
   }) 
   
   app.post("/unsubscribe", function(req, res) {
-    if (req.query.key==process.env.MAILCHIMP_SECRET) {
+    if (req.query.key==process.env.APP_SECRET) {
       var params = req.body;
       // parse mailchimp post
       console.log(params.type);
@@ -741,7 +759,7 @@ var routes = function(app) {
               }
             });            
           } else {
-            console.log(response);
+            // console.log(response);
           }
         });        
       } else {

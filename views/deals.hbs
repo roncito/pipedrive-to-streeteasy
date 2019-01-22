@@ -45,7 +45,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.11.2/jquery-ui.js"></script>
   <script src="https://sdk.amazonaws.com/js/aws-sdk-2.187.0.min.js"></script>
   <script>
-    var albumBucketName = '{{ bucketName }}';
+    var albumBucketName = '{{ bucketName }}'; // upload bucket
     var bucketRegion = '{{ region }}';
     var IdentityPoolId = '{{ identityPoolId }}';
     var albumName = '{{ pid }}';
@@ -59,6 +59,10 @@
       apiVersion: '2006-03-01',
       params: {Bucket: albumBucketName}
     });
+    var s3Dest = new AWS.S3({
+      apiVersion: '2006-03-01',
+      params: {Bucket: 'www.batteryharris.com'}
+    });    
   </script>
 
 {{/contentFor}}
@@ -124,6 +128,8 @@
             console.log('completemultiple');
           });
           this.on("success", function(file, response) {
+            console.log('success')
+            console.log(response)
             file.previewElement.id = Math.random().toString(36).split('.')[1];
           });
           this.on("processing", function (file) {
@@ -135,6 +141,10 @@
             console.log('queuecomplete')
             document.getElementById('activity-indicator').style.display='none';
             $( ".sortable" ).sortable( "enable" );
+            // update sort order
+            var previewIds = $('.sortable').sortable('toArray');
+            var archivos = getImagePathsByPreviewIds(previewIds);
+            setSortOrder(archivos);
           });
           var mockFile = { name: "myimage.jpg", size: 12345, type: 'image/jpeg' };       
           var albumPhotosKey = albumName + '/';
@@ -144,7 +154,7 @@
             // write images in order
             '{{imgPaths}}'.split(',').map(function(path) {
               // 2/angry_unicorn.png
-              var photoUrl = 'http://www.batteryharris.com/' + path;
+              var photoUrl = 'https://res.cloudinary.com/grandandco/image/fetch/w_1200,h_800,c_limit/g_south_east,x_5,y_5,l_grandandco-watermark/' + 'http://www.batteryharris.com/' + path;
               mockFile.name = path;
               dz.options.addedfile.call(dz, mockFile);
               dz.options.thumbnail.call(dz, mockFile, photoUrl);
@@ -153,13 +163,13 @@
               mockFile.previewElement.classList.add('dz-complete');
             });
           } else {
-            s3.listObjects({Prefix: albumPhotosKey}, function(err, data) {
+            s3Dest.listObjects({Prefix: albumPhotosKey}, function(err, data) {
               if (err) {
                 return alert('There was an error viewing your album: ' + err.message);
               }
               // `this` references the AWS.Response instance that represents the response
               var href = this.request.httpRequest.endpoint.href;
-              var bucketUrl = href + albumBucketName + '/';
+              var bucketUrl = 'https://res.cloudinary.com/grandandco/image/fetch/w_1200,h_800,c_limit/g_south_east,x_5,y_5,l_grandandco-watermark/' + href + 'www.batteryharris.com' + '/';
               var imgArry = [];
               var photos = data.Contents.map(function(photo) {
                 // add to db in order loaded
@@ -216,9 +226,11 @@
   function deletePhoto(photoKey) {
     console.log(photoKey);
     s3.deleteObject({Key: photoKey}, function(err, data) {
-      if (err) {
-        return alert('There was an error deleting your photo: ', err.message);
-      }
+      s3Dest.deleteObject({Key: photoKey}, function(err, data) {
+        if (err) {
+          return alert('There was an error deleting your photo: ', err.message);
+        }
+      });      
     });
     var previewIds = $('.sortable').sortable('toArray');
     var myFiles = getImagePathsByPreviewIds(previewIds);
