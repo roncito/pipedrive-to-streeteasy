@@ -1,1 +1,1 @@
-Query Pipedrive API for deals and then write XML for consumption by StreetEasy.
+Load data from Pipedrive API and write XML for consumption by StreetEasy.

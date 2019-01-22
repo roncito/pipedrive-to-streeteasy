@@ -7,19 +7,19 @@
 		"start": "node server.js"
 	},
 	"dependencies": {
-    "express": "^4.12.4",
-		"body-parser":"1.14.2",
-    "request":"2.83.0",
-    "async":"^2.6.0",
-    "xml":"^1.0.1",
-    "express-hbs":"^1.0.4",
-    "aws-sdk":"^2.190.0",
-    "lowdb": "1.x",
-    "http-auth": "3.2.3"
+		"express": "^4.12.4",
+		"body-parser": "1.14.2",
+		"request": "2.83.0",
+		"async": "^2.6.0",
+		"xml": "^1.0.1",
+		"express-hbs": "^1.0.4",
+		"aws-sdk": "^2.190.0",
+		"lowdb": "1.x",
+		"http-auth": "3.2.3"
 	},
-  "engines": {
-    "node": "8.x"
-  },
+	"engines": {
+		"node": "8.x"
+	},
 	"keywords": [
 		"node",
 		"express",

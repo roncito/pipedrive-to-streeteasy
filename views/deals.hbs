@@ -154,7 +154,7 @@
             // write images in order
             '{{imgPaths}}'.split(',').map(function(path) {
               // 2/angry_unicorn.png
-              var photoUrl = 'http://www.batteryharris.com/' + path;
+              var photoUrl = 'https://res.cloudinary.com/grandandco/image/fetch/w_1200,h_800,c_limit/g_south_east,x_5,y_5,l_grandandco-watermark/' + 'http://www.batteryharris.com/' + path;
               mockFile.name = path;
               dz.options.addedfile.call(dz, mockFile);
               dz.options.thumbnail.call(dz, mockFile, photoUrl);
@@ -169,7 +169,7 @@
               }
               // `this` references the AWS.Response instance that represents the response
               var href = this.request.httpRequest.endpoint.href;
-              var bucketUrl = href + 'www.batteryharris.com' + '/';
+              var bucketUrl = 'https://res.cloudinary.com/grandandco/image/fetch/w_1200,h_800,c_limit/g_south_east,x_5,y_5,l_grandandco-watermark/' + href + 'www.batteryharris.com' + '/';
               var imgArry = [];
               var photos = data.Contents.map(function(photo) {
                 // add to db in order loaded
